@@ -1,0 +1,9 @@
+# Service deps for the Azure-backed API (no torch/SBERT — retrieval is Azure AI Search)
+fastapi
+uvicorn[standard]
+openai>=1.40
+azure-search-documents>=11.5
+azure-core
+pandas
+numpy
+pydantic

@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+*.env
+
+# Confidential: manuscript under review, reviewer comments, publisher forms — do NOT publish
+Paper/
+my-notes.txt
+
+# Editor / tooling cruft
+.cursor/
+.cursorindexingignore
+.specstory/
+.vscode/
+
+# Experiment caches / regenerable outputs
+experiments/.cache/
+experiments/results/
+experiments/data/
+__pycache__/
+*.pyc

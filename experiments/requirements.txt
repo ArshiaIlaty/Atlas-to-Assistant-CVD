@@ -1,0 +1,14 @@
+# Revision experiment pipeline (three-condition RAG + evaluation)
+pandas
+numpy
+scipy
+scikit-learn
+statsmodels
+openpyxl
+sentence-transformers
+rank_bm25
+faiss-cpu            # only used when the corpus is large; brute-force otherwise
+openai>=1.40         # OpenAI or Azure OpenAI generation / judging
+# Optional, for the Azure AI Search production backend:
+# azure-search-documents
+# azure-identity

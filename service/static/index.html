@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CVD Research Assistant — three conditions</title>
+<style>
+  :root { --bg:#0f1b2d; --card:#fff; --ink:#15223a; --accent:#1a4d8f; --muted:#5b6b82; }
+  * { box-sizing:border-box }
+  body { font:15px/1.55 system-ui,Segoe UI,Arial; margin:0; background:#eef2f8; color:var(--ink) }
+  header { background:var(--bg); color:#fff; padding:18px 24px }
+  header h1 { margin:0; font-size:18px; font-weight:650 }
+  header p { margin:4px 0 0; color:#aebfd6; font-size:13px }
+  main { max-width:1150px; margin:22px auto; padding:0 18px }
+  .panel { background:var(--card); border-radius:10px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,.08) }
+  textarea { width:100%; min-height:72px; padding:10px; border:1px solid #c7d2e3; border-radius:8px; font:inherit; resize:vertical }
+  .row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-top:10px }
+  label { font-size:13px; color:var(--muted) }
+  select,input[type=number]{ padding:6px 8px; border:1px solid #c7d2e3; border-radius:7px; font:inherit }
+  button { background:var(--accent); color:#fff; border:0; padding:9px 18px; border-radius:8px; font-weight:600; cursor:pointer }
+  button:disabled { opacity:.5; cursor:wait }
+  .grid { display:grid; gap:14px; margin-top:16px; grid-template-columns:1fr }
+  .grid.three { grid-template-columns:repeat(3,1fr) }
+  .ans { background:var(--card); border-radius:10px; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,.08) }
+  .ans h3 { margin:0 0 8px; font-size:14px; color:var(--accent); display:flex; justify-content:space-between }
+  .tag { font-size:11px; background:#eaf0fb; color:var(--accent); padding:2px 7px; border-radius:20px }
+  .body { white-space:pre-wrap; font-size:14px }
+  .src { margin-top:10px; font-size:12px; color:var(--muted) }
+  .src details { margin-top:4px }
+  .pmid { color:#2c6; }
+  .err { color:#b00; font-size:13px; margin-top:10px }
+  @media (max-width:820px){ .grid.three{ grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Cardiovascular Research Assistant</h1>
+  <p>Three conditions — GPT-4.1 alone · + RAG (PubMed) · + RAG &amp; taxonomy — grounded, PMID-cited answers.</p>
+</header>
+<main>
+  <div class="panel">
+    <textarea id="q" placeholder="Ask a cardiovascular research question, e.g. 'What evidence supports targeting IL-1β in atherosclerosis?'"></textarea>
+    <div class="row">
+      <label>Mode
+        <select id="mode">
+          <option value="compare">Compare all three</option>
+          <option value="rag">RAG only</option>
+          <option value="rag_taxonomy">RAG + taxonomy</option>
+          <option value="alone">GPT-4 alone</option>
+        </select>
+      </label>
+      <label>Top-k <input id="k" type="number" value="5" min="1" max="10" style="width:60px"></label>
+      <button id="go">Ask</button>
+      <span id="status" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+  <div id="out" class="grid"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const KEY = new URLSearchParams(location.search).get('key');   // optional ?key=... for protected deployments
+const HEADERS = Object.assign({"Content-Type":"application/json"}, KEY ? {"x-api-key":KEY} : {});
+
+function card(r){
+  const tax = (r.retrieved_taxonomy||[]).filter(Boolean);
+  const pmids = (r.retrieved_pmids||[]);
+  let src = "";
+  if (pmids.length){
+    src = `<div class="src">Retrieved ${pmids.length} source(s)
+      <details><summary>PMIDs${tax.length?' + taxonomy':''}</summary>` +
+      pmids.map((p,i)=>`<div class="pmid">PMID ${esc(p)}${tax[i]?` — ${esc(tax[i].domain)} › ${esc(tax[i].subdomain)} › ${esc(tax[i].topic)}`:''}</div>`).join("") +
+      `</details></div>`;
+  }
+  const cites = (r.citations||[]).length ? ` · ${r.citations.length} cited` : "";
+  return `<div class="ans"><h3>${esc(r.condition)}<span class="tag">k=${r.k}${cites}</span></h3>
+     <div class="body">${esc(r.answer)||'<i>(no answer)</i>'}</div>${src}</div>`;
+}
+
+async function run(){
+  const q = $("#q").value.trim(); if(!q){ return; }
+  const mode = $("#mode").value, k = +$("#k").value;
+  $("#go").disabled = true; $("#err").textContent=""; $("#status").textContent="thinking…";
+  $("#out").className = "grid" + (mode==="compare"?" three":"");
+  $("#out").innerHTML = "";
+  try{
+    if(mode==="compare"){
+      const res = await fetch("/compare",{method:"POST",headers:HEADERS,
+        body:JSON.stringify({question:q,k})});
+      if(!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      $("#out").innerHTML = data.results.map(card).join("");
+    } else {
+      const res = await fetch("/ask",{method:"POST",headers:HEADERS,
+        body:JSON.stringify({question:q,condition:mode,k})});
+      if(!res.ok) throw new Error(await res.text());
+      $("#out").innerHTML = card(await res.json());
+    }
+  }catch(e){ $("#err").textContent = "Error: "+e.message; }
+  finally{ $("#go").disabled=false; $("#status").textContent=""; }
+}
+$("#go").addEventListener("click", run);
+$("#q").addEventListener("keydown", e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) run(); });
+</script>
+</body>
+</html>
