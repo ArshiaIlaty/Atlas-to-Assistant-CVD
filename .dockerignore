@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+*.env
+Paper/
+my-notes.txt
+.cursor/
+.specstory/
+.vscode/
+experiments/.cache/
+experiments/results/
+experiments/data/
+ETL/*.csv
+**/__pycache__/
+*.pyc
